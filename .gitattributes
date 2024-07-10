@@ -1,1 +1,2 @@
 data/raw_data_curmap.csv filter=lfs diff=lfs merge=lfs -text
+data/raw_data_newmap.csv filter=lfs diff=lfs merge=lfs -text
