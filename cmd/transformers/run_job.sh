@@ -10,7 +10,11 @@ IMAGE_NAME="transformer"
 TAG="cpu-latest"
 REGION="us-central1"
 #BUCKET_NAME="your-bucket-name"
-JOB_NAME="tranformers_test_run_2"
+JOB_NAME="tranformers_test_run_alpine_1"
+# https://cloud.google.com/vertex-ai/docs/training/configure-compute#machine-types for machine types compatabile
+INSTANCE_TYPE="n1-standard-4"
+# Refer to https://cloud.google.com/vertex-ai/docs/training/configure-compute#specifying_gpus for compatability.
+GPU_TYPE="NVIDIA_TESLA_T4"
 
 # Path to your Dockerfile directory (assuming the Dockerfile and training script are in the current directory)
 DOCKERFILE_PATH="."
@@ -35,7 +39,9 @@ echo "Submitting the job to Vertex AI..."
 gcloud beta ai custom-jobs create \
     --region=${REGION} \
     --display-name=${JOB_NAME} \
-    --worker-pool-spec="machine-type=n4-standard-4,replica-count=1,container-image-uri=${REGION_REPO}/${PROJECT_ID}/${REPO}/${IMAGE_NAME}:${TAG}"
+    --worker-pool-spec="machine-type=${INSTANCE_TYPE},replica-count=1,container-image-uri=${REGION_REPO}/${PROJECT_ID}/${REPO}/${IMAGE_NAME}:${TAG}"
+
+#,accelerator-type=${GPU_TYPE},accelerator-count=1,
 
 # Finish
 echo "Script completed."
