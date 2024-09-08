@@ -10,7 +10,7 @@ IMAGE_NAME="transformer"
 TAG="cpu-latest"
 REGION="us-central1"
 #BUCKET_NAME="your-bucket-name"
-JOB_NAME="tranformers_test_run_alpine_1"
+JOB_NAME="tranformers_test_run_slim_buster_2"
 # https://cloud.google.com/vertex-ai/docs/training/configure-compute#machine-types for machine types compatabile
 INSTANCE_TYPE="n1-standard-4"
 # Refer to https://cloud.google.com/vertex-ai/docs/training/configure-compute#specifying_gpus for compatability.
