@@ -256,8 +256,8 @@ if __name__ == "__main__":
     print(test_df.shape)
 
     # Create datasets and dataloaders
-    train_dataset = PitchSequenceDataset(train_df.head(10000), preprocessor)
-    test_dataset = PitchSequenceDataset(test_df.head(10000), preprocessor)
+    train_dataset = PitchSequenceDataset(train_df, preprocessor)
+    test_dataset = PitchSequenceDataset(test_df, preprocessor)
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=32)
 
@@ -268,8 +268,9 @@ if __name__ == "__main__":
     # Train model
     print("Starting Training")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using GPU: {torch.cuda.is_available()}")
     trained_model = train_model(model, train_loader, test_loader, num_epochs=10, lr=0.001, device=device)
 
-    save_model_to_gcs(model, "gs://pitch-sequencing/training_runs/test_run2/model.pth")
+    save_model_to_gcs(model, "gs://pitch-sequencing/training_runs/test_run_full_gpu_1/model.pth")
 
     print("Done")

@@ -1,7 +1,7 @@
 # This is all way too big, fix this.
 # CPU ONLY
-#FROM us-docker.pkg.dev/vertex-ai/training/pytorch-xla.2-3.py310:latest
-FROM python:3.11.9-slim-bullseye
+FROM us-docker.pkg.dev/vertex-ai/training/pytorch-xla.2-3.py310:latest
+#FROM python:3.11.9-slim-bullseye
 
 RUN apt-get update
 
