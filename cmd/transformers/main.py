@@ -129,71 +129,7 @@ class PitchTransformer(nn.Module):
         src = src + self.pos_encoder(pos)
         output = self.transformer(src, src_key_padding_mask=src_mask)
         return self.fc(output[:, -1, :])  # Only use the last position for prediction
-    
-class PitchPredictor:
-    def __init__(self, model, preprocessor):
-        self.model = model
-        self.preprocessor = preprocessor
 
-    def get_input_sequence_for_pitcher_prediction(self, sequence, pitcher_id):
-        encoded_input = self.preprocessor.encode_input(sequence, pitcher_id)
-        padded_input = self.preprocessor.pad_sequence(encoded_input)
-        input_seq = torch.tensor(padded_input, dtype=torch.long).unsqueeze(0)
-        return input_seq
-    
-    def get_next_pitch_probs_for_pitcher(self, sequence, pitcher_id, should_mask=True):
-        input_seq = self.get_input_sequence_for_pitcher_prediction(sequence, pitcher_id)
-
-        self.model.eval()
-        with torch.no_grad():
-            logits = self.model(input_seq)
-            # The output shape should be [1, vocab_size]
-            logits = logits.squeeze(0)  # Remove batch dimension if present
-            if logits.dim() > 1:
-                logits = logits[-1]  # Take the last prediction if multiple outputs
-            
-            if should_mask:
-                arsenal_mask = self.preprocessor.get_pitcher_arsenal_mask(pitcher_id)
-                logits[~arsenal_mask.bool()] = float('-inf')
-
-            probabilities = torch.softmax(logits, dim=0)
-        
-        return probabilities
-
-
-    def predict_next_pitch_for_pitcher(self, sequence, pitcher_id, should_mask=True):
-        probabilities = self.get_next_pitch_probs_for_pitcher(sequence, pitcher_id, should_mask)
-        predicted_idx = torch.argmax(probabilities).item()
-
-        return self.preprocessor.idx_to_pitch[predicted_idx]
-    
-    def get_next_pitch_probs(self, sequence, pitcher_id, should_mask=True):
-        encoded_seq = self.preprocessor.encode_sequence(sequence)
-        padded_seq = self.preprocessor.pad_sequence(encoded_seq)
-        input_seq = torch.tensor(padded_seq, dtype=torch.long).unsqueeze(0)
-        
-
-        self.model.eval()  # Ensure the model is in evaluation mode
-        with torch.no_grad():
-            logits = self.model(input_seq)
-            # The output shape should be [1, vocab_size]
-            logits = logits.squeeze(0)  # Remove batch dimension if present
-            if logits.dim() > 1:
-                logits = logits[-1]  # Take the last prediction if multiple outputs
-            
-            if should_mask:
-                arsenal_mask = self.preprocessor.get_pitcher_arsenal_mask(pitcher_id)
-                logits[~arsenal_mask.bool()] = float('-inf')
-
-            probabilities = torch.softmax(logits, dim=0)
-
-            return probabilities
-
-
-    def predict_next_pitch(self, sequence, pitcher_id, should_mask=True):
-        probabilities = self.get_next_pitch_probs(sequence, pitcher_id, should_mask)
-        predicted_idx = torch.argmax(probabilities).item()
-        return self.preprocessor.idx_to_pitch[predicted_idx]
 
 
 def train_model(model, train_loader, val_loader, num_epochs, lr, device):

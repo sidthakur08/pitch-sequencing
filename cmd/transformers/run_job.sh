@@ -24,8 +24,8 @@ set -o
 echo "Building Docker image..."
 docker build -t ${REGION_REPO}/${PROJECT_ID}/${REPO}/${IMAGE_NAME}:${TAG} ${DOCKERFILE_PATH}
 
-# Push the Docker image to Google Container Registry
-echo "Pushing Docker image to GCR..."
+# Push the Docker image to Google Artifact Regsitry
+echo "Pushing Docker image to GAR..."
 docker push ${REGION_REPO}/${PROJECT_ID}/${REPO}/${IMAGE_NAME}:${TAG}
 
 # Check if gcloud is authenticated
@@ -39,7 +39,7 @@ echo "Submitting the job to Vertex AI..."
 gcloud beta ai custom-jobs create \
     --region=${REGION} \
     --display-name=${JOB_NAME} \
-    --worker-pool-spec="machine-type=${INSTANCE_TYPE},accelerator-type=${GPU_TYPE},accelerator-count=1,replica-count=1,container-image-uri=${REGION_REPO}/${PROJECT_ID}/${REPO}/${IMAGE_NAME}:${TAG}"
+    --worker-pool-spec="machine-type=${INSTANCE_TYPE},\accelerator-type=${GPU_TYPE},accelerator-count=1,replica-count=1,container-image-uri=${REGION_REPO}/${PROJECT_ID}/${REPO}/${IMAGE_NAME}:${TAG}"
 
 
 # Finish
