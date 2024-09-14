@@ -16,5 +16,18 @@ Then do
 cd pitch-sequencing
 git lfs install
 git lfs pull
-
 ```
+
+### Install Docker
+
+https://docs.docker.com/engine/install/
+
+### Setup GCP
+
+Follow https://cloud.google.com/sdk/docs/install
+
+#### Setup Docker to use gcloud auth for GCP 
+```
+gcloud auth configure-docker us-central1-docker.pkg.dev
+```
+
