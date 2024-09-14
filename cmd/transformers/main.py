@@ -164,7 +164,7 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
 
         elapsed_time = time.time() - epoch_start
         
-        print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {train_loss/len(train_loader):.4f}, Val Loss: {val_loss/len(val_loader):.4f}. Epoch Time {elapsed_time:.2f}msec")
+        print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {train_loss/len(train_loader):.4f}, Val Loss: {val_loss/len(val_loader):.4f}. Epoch Time {elapsed_time:.2f}sec")
 
     saved_path = save_model_to_gcs(model, join_paths(output_directory, "final", "model.pth"))
     print(f"Saved final model to {saved_path}")
