@@ -7,9 +7,10 @@ RUN apt-get update
 
 WORKDIR /app
 
-COPY main.py /app/train.py
 COPY requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip && pip install -r requirements.txt
+
+COPY main.py /app/train.py
 
 # Why are we going from 14.5 GB to 23 GB?
 ENTRYPOINT ["python", "train.py"]
