@@ -11,6 +11,8 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 from collections import defaultdict
 
+from pitch_sequencing.io.join import join_paths
+
 
 class PitchDataPreprocessor:
     def __init__(self, df):
@@ -180,6 +182,8 @@ if __name__ == "__main__":
     print(f"Reading data from {input_data_path}")
     df = pd.read_csv(input_data_path)
 
+
+    print(join_paths("hello", "world", "goodbye", "world"))
 
     # Preprocess data
     preprocessor = PitchDataPreprocessor(df)

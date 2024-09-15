@@ -32,8 +32,8 @@ FULL_DOCKER_IMAGE_URI="${REGION_REPO}/${PROJECT_ID}/${REPO}/${IMAGE_NAME}:${TAG}
 set -o
 # Build Docker image
 echo "Building Docker image \"${FULL_DOCKER_IMAGE_URI}\"..."
-docker build -t ${FULL_DOCKER_IMAGE_URI} ${DOCKERFILE_PATH}
-
+DOCKER_BUILD_CONTEXT=${BASE_PITCH_SEQUENCING_PATH}
+docker build -t ${FULL_DOCKER_IMAGE_URI} -f Dockerfile ${DOCKER_BUILD_CONTEXT}
 # Push the Docker image to Google Artifact Regsitry
 echo "Pushing Docker image \"${FULL_DOCKER_IMAGE_URI}\" to GAR..."
 docker push ${FULL_DOCKER_IMAGE_URI}
