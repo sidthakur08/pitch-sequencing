@@ -6,11 +6,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import gcsfs
 
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 from collections import defaultdict
+
+from pitch_sequencing.io.join import join_paths
+from pitch_sequencing.io.gcs import save_model_to_gcs
 
 
 class PitchDataPreprocessor:
@@ -172,23 +174,6 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
     return model
 
 
-def join_paths(*paths: str) -> str:
-    """
-        joins the path of two path objects. strips any excess '/' chars from inputs before joining with '/'
-    """
-    
-    cleaned_paths = [path.strip('/') for path in paths]
-    return "/".join(cleaned_paths)
-
-def save_model_to_gcs(model: nn.Module, gcs_path: str) -> str:
-    fs = gcsfs.GCSFileSystem(project="pitch-sequencing")
-
-    with fs.open(gcs_path, 'wb') as f:
-        torch.save(model.state_dict(), f)
-
-    return gcs_path
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Train a ML model.")
 
@@ -202,10 +187,9 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    print(f"Inputa Args: {args}")
+    print(f"Input Args: {args}")
 
     input_data_path = args.input_path
-    #"gs://pitch-sequencing/sequence_data/large_sequence_data_cur_opt.csv"
     print(f"Reading data from {input_data_path}")
     df = pd.read_csv(input_data_path)
 

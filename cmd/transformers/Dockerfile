@@ -7,10 +7,15 @@ RUN apt-get update
 
 WORKDIR /app
 
-COPY requirements.txt /app/requirements.txt
+# Hardcode for now.
+COPY cmd/transformers/requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-COPY main.py /app/train.py
+# Hardcode for now.
+COPY cmd/transformers/main.py /app/train.py
+
+COPY . /app
+RUN pip install -e .
 
 # Why are we going from 14.5 GB to 23 GB?
 ENTRYPOINT ["python", "train.py"]
