@@ -1,10 +1,4 @@
 ### Dev Setup 
-```
-conda create -n "pitch-sequencing" python=3.11.9
-conda activate pitch-sequencing
-pip install -r requirements-dev.txt
-pip install -e .
-```
 
 ### access lfs file
 
@@ -26,8 +20,7 @@ https://docs.docker.com/engine/install/
 
 Follow https://cloud.google.com/sdk/docs/install
 
-#### Setup Docker to use gcloud auth for GCP 
-```
-gcloud auth configure-docker us-central1-docker.pkg.dev
-```
+### Mac Dev Setup
+
+You can run `./mac-setup.sh` to build Dev Python environment and setup Docker credentials.
 
