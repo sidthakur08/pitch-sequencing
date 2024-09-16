@@ -1,3 +1,4 @@
+import argparse
 import time
 
 import pandas as pd
@@ -134,7 +135,7 @@ class PitchTransformer(nn.Module):
 
 
 
-def train_model(model, train_loader, val_loader, num_epochs, lr, device):
+def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, num_epochs: int, lr: float, device: torch.device, output_directory: str) -> nn.Module:
     model.to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -167,18 +168,46 @@ def train_model(model, train_loader, val_loader, num_epochs, lr, device):
         
         print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {train_loss/len(train_loader):.4f}, Val Loss: {val_loss/len(val_loader):.4f}. Epoch Time {elapsed_time:.2f}sec")
 
+    saved_path = save_model_to_gcs(model, join_paths(output_directory, "final", "model.pth"))
+    print(f"Saved final model to {saved_path}")
+
     return model
 
-def save_model_to_gcs(model: nn.Module, gcs_path: str):
+
+def join_paths(*paths: str) -> str:
+    """
+        joins the path of two path objects. strips any excess '/' chars from inputs before joining with '/'
+    """
+    
+    cleaned_paths = [path.strip('/') for path in paths]
+    return "/".join(cleaned_paths)
+
+def save_model_to_gcs(model: nn.Module, gcs_path: str) -> str:
     fs = gcsfs.GCSFileSystem(project="pitch-sequencing")
 
     with fs.open(gcs_path, 'wb') as f:
         torch.save(model.state_dict(), f)
 
-    print(f"Saved model to {gcs_path}")
+    return gcs_path
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train a ML model.")
+
+    parser.add_argument("--input_path", type=str, required=True, help="Input Path to training data.")
+    parser.add_argument("--output_directory", type=str, required=True, help="Directory path for all output artifacts from training job")
+    parser.add_argument("--num_epochs", type=int, default=10, help="Number of training epochs to run")
+    parser.add_argument("--batch_size", type=int, default=32, help="Mini batch size for training")
+    parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate for optimizer")
+
+    return parser.parse_args()
 
 if __name__ == "__main__":
-    input_data_path = "gs://pitch-sequencing/sequence_data/large_sequence_data_cur_opt.csv"
+    args = parse_args()
+    print(f"Inputa Args: {args}")
+
+    input_data_path = args.input_path
+    #"gs://pitch-sequencing/sequence_data/large_sequence_data_cur_opt.csv"
     print(f"Reading data from {input_data_path}")
     df = pd.read_csv(input_data_path)
 
@@ -198,8 +227,8 @@ if __name__ == "__main__":
     # Create datasets and dataloaders
     train_dataset = PitchSequenceDataset(train_df, preprocessor)
     test_dataset = PitchSequenceDataset(test_df, preprocessor)
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=32)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
     # Initialize model
     vocab_size = len(preprocessor.pitch_to_idx)
@@ -209,8 +238,6 @@ if __name__ == "__main__":
     print("Starting Training")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using GPU: {torch.cuda.is_available()}")
-    trained_model = train_model(model, train_loader, test_loader, num_epochs=10, lr=0.001, device=device)
+    _ = train_model(model, train_loader, test_loader, num_epochs=args.num_epochs, lr=args.learning_rate, device=device, output_directory=args.output_directory)
 
-    save_model_to_gcs(model, "gs://pitch-sequencing/training_runs/test_run_full_gpu_1/model.pth")
-
-    print("Done")
+    print(f"Done training model. Output can be found at {args.output_directory}")

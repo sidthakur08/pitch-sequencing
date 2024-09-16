@@ -7,10 +7,12 @@ RUN apt-get update
 
 WORKDIR /app
 
-# Hardcode for now
-COPY cmd/transformers/main.py /app/train.py
+# Hardcode for now.
 COPY cmd/transformers/requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip && pip install -r requirements.txt
+
+# Hardcode for now.
+COPY cmd/transformers/main.py /app/train.py
 
 COPY . /app
 RUN pip install -e .
