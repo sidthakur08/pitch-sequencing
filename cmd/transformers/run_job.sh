@@ -9,7 +9,6 @@ if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" > /dev/nu
 fi
 
 
-set -x
 # Define variables
 # Path to your Dockerfile directory (assuming the Dockerfile and training script are in the current directory)
 DOCKERFILE_PATH="."
@@ -42,10 +41,11 @@ LEARNING_RATE=0.001
 BATCH_SIZE=64
 INPUT_PATH="gs://pitch-sequencing/sequence_data/large_sequence_data_cur_opt.csv"
 OUTPUT_DIRECTORY="${GLOBAL_TRAINING_RUN_DIRECTORY}/${JOB_NAME}"
+LOGGING_DIRECTORY="${OUTPUT_DIRECTORY}/logging"
 
 # Format for gcloud command
 TRAINING_ARGS="--num_epochs=${NUM_EPOCHS},--learning_rate=${LEARNING_RATE},--batch_size=${BATCH_SIZE},\
---input_path=${INPUT_PATH},--output_directory=${OUTPUT_DIRECTORY}"
+--input_path=${INPUT_PATH},--output_directory=${OUTPUT_DIRECTORY},--logging_directory=${LOGGING_DIRECTORY}"
 
 
 # Build Docker image
@@ -71,6 +71,9 @@ container-image-uri=${FULL_DOCKER_IMAGE_URI}"\
 
 # For above, the command requires worker spec to be in same string
 
+set +x
 
 # Finish
-echo "Script completed. Job Name: ${JOB_NAME}"
+echo "\nScript completed. Job Name: ${JOB_NAME}\n"
+
+echo "\nView Tensorboard logs by running \`tensorboard --logdir=${LOGGING_DIRECTORY} && open http://localhost:6006\`\n"

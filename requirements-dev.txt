@@ -66,6 +66,9 @@ six==1.16.0
 soupsieve==2.5
 stack-data==0.6.2
 sympy==1.12.1
+# Maybe install tensorflow for tensorboard logging that doesn't suck?
+tensorflow==2.16.2
+tensorboard>=2.16
 threadpoolctl==3.5.0
 torch==2.2.2
 tornado==6.4.1
