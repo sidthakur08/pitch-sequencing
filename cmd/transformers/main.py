@@ -141,7 +141,7 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-    # Create the SummaryWriter
+    # SummaryWriter for Tensorboard logging metrics
     summary_writer = SummaryWriter(log_dir=logging_directory)
 
     for epoch in range(num_epochs):
@@ -158,8 +158,8 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
             optimizer.step()
             train_loss += loss.item()
         
-        summary_writer.add_scalar(tag="train/loss", scalar_value=train_loss, global_step=epoch)
-        summary_writer.add_scalar(tag="train/avg_loss", scalar_value=train_loss/len(train_loader), global_step=epoch)
+        summary_writer.add_scalar("train/loss", train_loss, epoch)
+        summary_writer.add_scalar("train/avg_loss", train_loss/len(train_loader), epoch)
 
         model.eval()
         val_loss = 0
@@ -171,8 +171,8 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
                 loss = criterion(output, target)
                 val_loss += loss.item()
             
-        summary_writer.add_scalar(tag="val/loss", scalar_value=val_loss, global_step=epoch)
-        summary_writer.add_scalar(tag="val/avg_loss", scalar_value=val_loss/len(val_loader), global_step=epoch)
+        summary_writer.add_scalar("val/loss", val_loss, epoch)
+        summary_writer.add_scalar("val/avg_loss", val_loss/len(val_loader), epoch)
 
        
         elapsed_time = time.time() - epoch_start
