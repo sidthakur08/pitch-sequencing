@@ -27,7 +27,7 @@ class HardCodedPitchSequenceTokenizer:
         self.max_sequence_len = 32
         
         # Reverse the mapping of above.
-        self._id_to_pitch: typing.Dict[int, str] = {id: pitch for pitch, id in self._id_to_pitch.items()} 
+        self._id_to_pitch: typing.Dict[int, str] = {id: pitch for pitch, id in self._pitch_to_id.items()} 
         
 
     def tokenize(self, sequence: str) -> typing.List[int]:
@@ -40,8 +40,11 @@ class HardCodedPitchSequenceTokenizer:
              the id of each pitch found in the input sequence in the given order.
              Padded with 0s to the max_sequence_len.
         """
+        if len(sequence) == 0:
+            raise ValueError("Given input sequence is empty")
 
         tokenized_seq = [self._start_id] + [self._pitch_to_id[pitch] for pitch in sequence.split(',')]
+
         if len(tokenized_seq) > self.max_sequence_len:
             raise ValueError(f"Input sequence length {len(tokenized_seq)} > {self.max_sequence_len}")
         
