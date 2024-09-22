@@ -1,60 +1,18 @@
 import argparse
 import time
-import typing
 
 import pandas as pd
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
+from pitch_sequencing.ml.data.last_pitch import LastPitchSequenceDataset
 from pitch_sequencing.ml.tokenizers.pitch_sequence import HardCodedPitchSequenceTokenizer
+from pitch_sequencing.ml.models.last_pitch import LastPitchTransformerModel
 from pitch_sequencing.io.join import join_paths
 from pitch_sequencing.io.gcs import save_model_to_gcs
-
-class LastPitchSequenceDataset(Dataset):
-    def __init__(self, df: pd.DataFrame, seq_tokenizer: HardCodedPitchSequenceTokenizer) -> None:
-        super().__init__()
-        self.df = df
-        self.seq_tokenizer = seq_tokenizer
-
-    def __len__(self):
-        return len(self.df)
-
-    def __getitem__(self, idx):
-        row = self.df.iloc[idx]
-
-        raw_seq = row['Pitch Sequence']
-        parsed_seq = raw_seq.split(',')
-        last_pitch = parsed_seq.pop()
-        # Not ideal but tokenizer is csv list for now.
-        missing_last_pitch_raw_seq = ",".join(parsed_seq)
-
-        input_seq = torch.tensor(self.seq_tokenizer.tokenize(missing_last_pitch_raw_seq), dtype=long)
-        target = torch.tensor(self.seq_tokenizer.get_id_for_pitch(last_pitch), dtype=torch.long)
-
-        return input_seq, target
-
-class PitchTransformerModel(nn.Module):
-    def __init__(self, vocab_size, d_model, nhead, num_layers, dropout=0.1):
-        super(PitchTransformerModel, self).__init__()
-        self.embedding = nn.Embedding(vocab_size, d_model)
-        self.pos_encoder = nn.Embedding(1000, d_model)  # Assuming max sequence length < 1000
-        self.transformer = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model, nhead, dropout=dropout),
-            num_layers
-        )
-        self.fc = nn.Linear(d_model, vocab_size)
-
-    def forward(self, src, src_mask=None):
-        src = self.embedding(src)
-        pos = torch.arange(0, src.size(1), dtype=torch.long, device=src.device).unsqueeze(0)
-        src = src + self.pos_encoder(pos)
-        output = self.transformer(src, src_key_padding_mask=src_mask)
-        return self.fc(output[:, -1, :])  # Only use the last position for prediction
 
 
 def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, num_epochs: int, lr: float, device: torch.device, output_directory: str, logging_directory: str) -> nn.Module:
@@ -140,7 +98,7 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     validation_loader = DataLoader(validation_dataset, batch_size=args.batch_size)
 
-    model = PitchTransformerModel(tokenizer.vocab_size(), d_model=64, nhead=4, num_layers=2)
+    model = LastPitchTransformerModel(tokenizer.vocab_size(), d_model=64, nhead=4, num_layers=2)
 
     # Train model
     print("Starting Training")
