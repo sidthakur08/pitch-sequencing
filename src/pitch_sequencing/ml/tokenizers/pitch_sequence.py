@@ -59,6 +59,9 @@ class HardCodedPitchSequenceTokenizer:
         
         return self._pitch_to_id[pitch]
     
+    def get_pitch_for_id(self, id: int) -> str:
+        return self._id_to_pitch[id]
+    
     def vocab_size(self) -> int:
         return len(self._pitch_to_id)
 
