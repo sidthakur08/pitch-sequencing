@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
 
+from datetime import datetime
 from typing import Optional
 
 from pitch_sequencing.constants.gcloud import get_gcloud_account_username
@@ -19,10 +21,16 @@ REGION="us-central1"
 DEFAULT_IMAGE_TAG_TEMPLATE="{username}-latest"
 FULL_DOCKER_IMAGE_URI_TEMPLATE="{region_repo}/{project_id}/{repo}/{image_name}:{tag}"
 
+GLOBAL_TRAINING_RUN_DIRECTORY="gs://pitch-sequencing/training_runs"
+TRAINING_OUTPUT_TEMPLATE=GLOBAL_TRAINING_RUN_DIRECTORY+"/{job_name}"
+
 
 LOCAL_BUILD_PATH=os.path.join(get_project_base_dir(), ".build")
 
-REQUIRED_JOB_FILES=["main.py", "params.json"]
+MAIN_PY_FILE_NAME="main.py"
+JOB_CONFIG_JSON_FILE_NAME="job_config.json"
+
+REQUIRED_JOB_FILES=[MAIN_PY_FILE_NAME, JOB_CONFIG_JSON_FILE_NAME]
     
 
 def parse_args():
@@ -105,7 +113,7 @@ COPY {rel_target_build_directory} /app
 COPY . /app
 RUN pip install -e .
 
-ENTRYPOINT ["python", "main.py"]
+ENTRYPOINT ["python", "{MAIN_PY_FILE_NAME}"]
 """
     
     with open(dockerfile_path, 'w') as f:
@@ -193,10 +201,93 @@ def push_docker_image(docker_image_uri: str):
         print("Failed to push Docker Image")
         raise e
 
+class LaunchedTrainingJobInfo:
+    def __init__(self, job_name: str, output_directory: str, logging_directory: str):
+        self.job_name = job_name
+        self.output_directory = output_directory
+        self.logging_directroy = logging_directory
+
+def generate_job_name(build_directory: str, job_suffix: Optional[str]) -> str:
+    """
+    Generates the name for the training job. Extracts the basename from the build directory and appends the timestamp.
+    If job_suffix is provided, append that as well.
+
+    Returns {basename}_training_job_{timestamp}_{job_suffix}
+    """
+    basename = os.path.basename(build_directory)
+    
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+
+    job_name = f"{basename}_training_job_{timestamp}"
+
+    if job_suffix is not None:
+        job_name = job_name + f"_{job_suffix}"
+
+    return job_name
+
+def build_worker_pool_spec(docker_image_uri: str, vertex_config) -> str:
+    worker_pool_spec = []
+    #worker_pool_spec.append(f"container-image-uri={docker_image_uri}")
+    worker_pool_spec.append(f"machine-type={vertex_config['instance_type']}")
+    worker_pool_spec.append(f"replica-count={vertex_config['replica_count']}")
+    if "gpu_config" in vertex_config:
+        gpu_config = vertex_config["gpu_config"]
+        worker_pool_spec.append(f"accelerator-type={gpu_config['accelerator_type']}")
+        worker_pool_spec.append(f"accelerator-count={gpu_config['accelerator_count']}")
+    else:
+        print("No GPU config given!")
+    
+    worker_pool_spec.append(f"container-image-uri={docker_image_uri}")
+
+    return ",".join(worker_pool_spec)
+
+def build_job_args(vertex_config, output_directory: str) -> str:
+    args = vertex_config['args']
+
+    logging_directory = f"{output_directory}/logging"
+
+    args.append(f"--output_directory={output_directory}")
+    args.append(f"--logging_directory={logging_directory}")
+
+    return ",".join(args)
+
+
+def build_vertex_create_command(job_name: str, docker_image_uri: str, vertex_config, output_directory: str):
+    """"""
+    worker_pool_spec = build_worker_pool_spec(docker_image_uri, vertex_config)
+    job_args = build_job_args(vertex_config, output_directory)
+
+    create_command = ["gcloud", "beta", "ai", "custom-jobs", "create"]
+    create_command.append(f"--region={REGION}")
+    create_command.append(f"--display-name={job_name}")
+    create_command.append(f"--worker-pool-spec={worker_pool_spec}")
+    create_command.append(f"--args={job_args}")
+
+    return create_command
+
+
+
+def launch_vertex_job_from_config(build_directory: str, docker_image_uri: str, job_suffix: Optional[str]):
+    with open(os.path.join(build_directory, JOB_CONFIG_JSON_FILE_NAME), 'r') as file:
+        job_config_data = json.load(file)
+
+    job_name = generate_job_name(build_directory, job_suffix)
+    output_directory = TRAINING_OUTPUT_TEMPLATE.format(job_name=job_name)
+
+    vertex_config = job_config_data["vertex_training_config"]
+
+    create_command = build_vertex_create_command(job_name, docker_image_uri, vertex_config, output_directory)
+
+    try:
+        # Execute the docker build command
+        result = subprocess.run(create_command, check=True, text=True)
+    except subprocess.CalledProcessError as e:
+        print("Failed to push Docker Image")
+        raise e
+
 
 if __name__ == "__main__":
     args = parse_args()
-    print(f"hello world {args.job_target_path}")
 
     # Extract targets from input path. 
     target_directory_path = extract_target_directory(args.job_target_path)
@@ -212,4 +303,4 @@ if __name__ == "__main__":
     push_docker_image(docker_image_name)
     print("Succesfully pushed Docker Image to GCP")
 
-
+    launch_vertex_job_from_config(build_directory, docker_image_name, args.job_suffix)
