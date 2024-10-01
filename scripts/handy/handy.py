@@ -12,7 +12,7 @@ from typing import Optional
 from pitch_sequencing.constants.gcloud import get_gcloud_account_username
 from pitch_sequencing.constants.project import get_project_base_dir
 
-
+# Docker constants
 DEFAULT_BASE_DOCKER_IMAGE="us-docker.pkg.dev/vertex-ai/training/pytorch-xla.2-3.py310:latest"
 REGION_REPO="us-central1-docker.pkg.dev"
 PROJECT_ID="pitch-sequencing"
@@ -21,10 +21,12 @@ REGION="us-central1"
 DEFAULT_IMAGE_TAG_TEMPLATE="{username}-latest"
 FULL_DOCKER_IMAGE_URI_TEMPLATE="{region_repo}/{project_id}/{repo}/{image_name}:{tag}"
 
+# Training Params
 GLOBAL_TRAINING_RUN_DIRECTORY="gs://pitch-sequencing/training_runs"
 TRAINING_OUTPUT_TEMPLATE=GLOBAL_TRAINING_RUN_DIRECTORY+"/{job_name}"
 
 
+# Build constants
 LOCAL_BUILD_PATH=os.path.join(get_project_base_dir(), ".build")
 
 MAIN_PY_FILE_NAME="main.py"
@@ -201,12 +203,6 @@ def push_docker_image(docker_image_uri: str):
         print("Failed to push Docker Image")
         raise e
 
-class LaunchedTrainingJobInfo:
-    def __init__(self, job_name: str, output_directory: str, logging_directory: str):
-        self.job_name = job_name
-        self.output_directory = output_directory
-        self.logging_directroy = logging_directory
-
 def generate_job_name(build_directory: str, job_suffix: Optional[str]) -> str:
     """
     Generates the name for the training job. Extracts the basename from the build directory and appends the timestamp.
@@ -226,8 +222,13 @@ def generate_job_name(build_directory: str, job_suffix: Optional[str]) -> str:
     return job_name
 
 def build_worker_pool_spec(docker_image_uri: str, vertex_config) -> str:
+    """
+    Builds the command line key-value pairs for GCP Vertex AI's worker-pool-spec
+    https://cloud.google.com/sdk/gcloud/reference/ai/custom-jobs/create#--worker-pool-spec
+
+    Uses a json dictionary config defined in README.
+    """
     worker_pool_spec = []
-    #worker_pool_spec.append(f"container-image-uri={docker_image_uri}")
     worker_pool_spec.append(f"machine-type={vertex_config['instance_type']}")
     worker_pool_spec.append(f"replica-count={vertex_config['replica_count']}")
     if "gpu_config" in vertex_config:
@@ -242,6 +243,10 @@ def build_worker_pool_spec(docker_image_uri: str, vertex_config) -> str:
     return ",".join(worker_pool_spec)
 
 def build_job_args(vertex_config, output_directory: str) -> str:
+    """
+    Takes args from input config and builds other generated args for python training script.
+    https://cloud.google.com/sdk/gcloud/reference/ai/custom-jobs/create#--args 
+    """
     args = vertex_config['args']
 
     logging_directory = f"{output_directory}/logging"
@@ -253,7 +258,10 @@ def build_job_args(vertex_config, output_directory: str) -> str:
 
 
 def build_vertex_create_command(job_name: str, docker_image_uri: str, vertex_config, output_directory: str):
-    """"""
+    """
+    Builds the create job comand described here:
+    https://cloud.google.com/sdk/gcloud/reference/ai/custom-jobs/create
+    """
     worker_pool_spec = build_worker_pool_spec(docker_image_uri, vertex_config)
     job_args = build_job_args(vertex_config, output_directory)
 
@@ -268,6 +276,12 @@ def build_vertex_create_command(job_name: str, docker_image_uri: str, vertex_con
 
 
 def launch_vertex_job_from_config(build_directory: str, docker_image_uri: str, job_suffix: Optional[str]):
+    """
+    Gathers input configs and build state and launches a GCP Vertex AI training job using CLI:
+    https://cloud.google.com/sdk/gcloud/reference/ai/custom-jobs/create
+
+    TODO(kaelen): Figure out how to use their Python API instead.
+    """
     with open(os.path.join(build_directory, JOB_CONFIG_JSON_FILE_NAME), 'r') as file:
         job_config_data = json.load(file)
 
