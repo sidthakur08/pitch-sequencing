@@ -9,8 +9,8 @@ TAG=latest
 
 DOCKER_IMAGE="us-central1-docker.pkg.dev/pitch-sequencing/pitch-sequencing-training/base-training-image"
 
-GIT_SHA_IMAGE="${DOCKER_IMAGE}/${GIT_SHA_TAG}"
-LATEST_IMAGE="${DOCKER_IMAGE}/${TAG}"
+GIT_SHA_IMAGE="${DOCKER_IMAGE}:${GIT_SHA_TAG}"
+LATEST_IMAGE="${DOCKER_IMAGE}:${TAG}"
 
 
 set -ex
