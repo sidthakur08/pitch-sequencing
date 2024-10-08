@@ -13,6 +13,7 @@ from pitch_sequencing.ml.tokenizers.pitch_sequence import HardCodedPitchSequence
 from pitch_sequencing.ml.models.last_pitch import LastPitchTransformerModel
 from pitch_sequencing.io.join import join_paths
 from pitch_sequencing.io.gcs import save_model_to_gcs
+from pitch_sequencing.io.args.training import add_common_training_args
 
 
 def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, num_epochs: int, lr: float, device: torch.device, output_directory: str, logging_directory: str) -> nn.Module:
@@ -66,15 +67,7 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train a ML model.")
-
-    parser.add_argument("--input_train_path", type=str, required=True, help="Input Path to training data.")
-    parser.add_argument("--input_validation_path", type=str, required=True, help="Validation data input path")
-    parser.add_argument("--output_directory", type=str, required=True, help="Directory path for all output artifacts from training job")
-    parser.add_argument("--logging_directory", type=str, required=True, help="Base directory where all logging files will be stored, including tensorboard")
-    parser.add_argument("--num_epochs", type=int, default=10, help="Number of training epochs to run")
-    parser.add_argument("--batch_size", type=int, default=32, help="Mini batch size for training")
-    parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate for optimizer")
-
+    add_common_training_args(parser)
     return parser.parse_args()
 
 
