@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 
 class LastPitchTransformerModel(nn.Module):
-    def __init__(self, vocab_size, d_model, nhead, num_layers, dropout=0.1):
+    def __init__(self, vocab_size, d_model, nhead, num_layers, max_seq_len=1000, dropout=0.1):
         super(LastPitchTransformerModel, self).__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
-        self.pos_encoder = nn.Embedding(1000, d_model)  # Assuming max sequence length < 1000
+        self.pos_encoder = nn.Embedding(max_seq_len, d_model)  # Assuming max sequence length < 1000
         self.transformer = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(d_model, nhead, dropout=dropout),
             num_layers

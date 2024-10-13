@@ -4,25 +4,33 @@ import time
 import pandas as pd
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torchvision.ops import sigmoid_focal_loss
 
-from pitch_sequencing.ml.data.last_pitch import LastPitchSequenceDataset
-from pitch_sequencing.ml.tokenizers.pitch_sequence import HardCodedPitchSequenceTokenizer
+
+from pitch_sequencing.ml.data.count_state import LastPitchSequenceWithCountDataset
+from pitch_sequencing.ml.tokenizers.pitch_sequence import PitchSequenceWithCountTokenizer
 from pitch_sequencing.ml.models.last_pitch import LastPitchTransformerModel
 from pitch_sequencing.io.join import join_paths
 from pitch_sequencing.io.gcs import save_model_to_gcs
 
+USE_FOCAL_LOSS = False
 
-def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, num_epochs: int, lr: float, device: torch.device, output_directory: str, logging_directory: str) -> nn.Module:
+
+def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, num_epochs: int, lr: float, device: torch.device, output_directory: str, logging_directory: str, output_len: int) -> nn.Module:
     model.to(device)
-    criterion = nn.CrossEntropyLoss()
+    criterion = F.cross_entropy
+    if USE_FOCAL_LOSS:
+        criterion = sigmoid_focal_loss
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     # SummaryWriter for Tensorboard logging metrics
     summary_writer = SummaryWriter(log_dir=logging_directory)
-
+    # target = [8] CE
+    # target = [0, 0, .. , 1, 0, 0] N = vocab_size 
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0
@@ -32,7 +40,12 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
             input_seq, target = [b.to(device) for b in batch]
             optimizer.zero_grad()
             output = model(input_seq)
-            loss = criterion(output, target)
+            if USE_FOCAL_LOSS:
+                expanded_target = torch.zeros(len(target), output_len, device=device)
+                for i, t in enumerate(target):
+                    expanded_target[i, t.item()] = 1
+                    target = expanded_target
+            loss = criterion(output, target, reduction='mean')
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
@@ -46,7 +59,12 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
                 # Don't use arsenal mask for now.
                 input_seq, target = [b.to(device) for b in batch]
                 output = model(input_seq)
-                loss = criterion(output, target)
+                if USE_FOCAL_LOSS:
+                    expanded_target = torch.zeros(len(target), output_len, device=device)
+                    for i, t in enumerate(target):
+                        expanded_target[i, t.item()] = 1
+                        target = expanded_target
+                loss = criterion(output, target, reduction='mean')
                 val_loss += loss.item()
 
         summary_writer.add_scalar("val/avg_loss", val_loss/len(val_loader), epoch)
@@ -90,11 +108,11 @@ if __name__ == "__main__":
     print(train_df.shape)
     print(validation_df.shape)
 
-    tokenizer = HardCodedPitchSequenceTokenizer()
+    tokenizer = PitchSequenceWithCountTokenizer()
 
     # Create datasets and dataloaders
-    train_dataset = LastPitchSequenceDataset(train_df, tokenizer, seq_df_key="pitch_sequence")
-    validation_dataset = LastPitchSequenceDataset(validation_df, tokenizer, seq_df_key="pitch_sequence")
+    train_dataset = LastPitchSequenceWithCountDataset(train_df, tokenizer, seq_df_key="pitch_sequence")
+    validation_dataset = LastPitchSequenceWithCountDataset(validation_df, tokenizer, seq_df_key="pitch_sequence")
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     validation_loader = DataLoader(validation_dataset, batch_size=args.batch_size)
 
@@ -104,6 +122,6 @@ if __name__ == "__main__":
     print("Starting Training")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using GPU: {torch.cuda.is_available()}")
-    _ = train_model(model, train_loader, validation_loader, num_epochs=args.num_epochs, lr=args.learning_rate, device=device, output_directory=args.output_directory, logging_directory=args.logging_directory)
+    _ = train_model(model, train_loader, validation_loader, num_epochs=args.num_epochs, lr=args.learning_rate, device=device, output_directory=args.output_directory, logging_directory=args.logging_directory, output_len=tokenizer.vocab_size())
 
     print(f"Done training model. Output can be found at {args.output_directory}")
