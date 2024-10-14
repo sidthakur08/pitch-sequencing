@@ -144,3 +144,61 @@ class PitchSequenceWithCountTokenizer:
     def vocab_size(self) -> int:
         return len(self._pitch_to_id)
     
+class SeparateSequenceTokenizer():
+    def __init__(self, pitches: typing.List[str]=ORDERED_PITCHES):
+        ids = ['<pad>', '<start>', '<arsenal>']
+        ids.extend(pitches)
+        ids.extend(ORDERED_COUNT)
+
+        self._pitch_to_id = {}
+        for i in range(0, len(ids)):
+            self._pitch_to_id[ids[i]] = i
+        
+        self._pad_id = 0
+        self._start_id = 1
+        
+        self.max_sequence_len = 32
+        
+        # Reverse the mapping of above.
+        self._id_to_pitch: typing.Dict[int, str] = {id: pitch for pitch, id in self._pitch_to_id.items()} 
+
+    def _tokenize_and_pad_sequence(self, sequence: typing.List[str]) -> typing.Tuple[typing.List[int], typing.List[bool]]:
+        tokenized_seq = [self._pitch_to_id[item] for item in sequence]
+
+        if len(tokenized_seq) > self.max_sequence_len:
+            raise ValueError(f"Input sequence length {len(tokenized_seq)} > {self.max_sequence_len}")
+
+        padding_mask = [False] * len(tokenized_seq)
+        if len(tokenized_seq) < self.max_sequence_len:
+            pad_length = (self.max_sequence_len - len(tokenized_seq))
+            tokenized_seq = tokenized_seq + [self._pad_id] * pad_length
+            padding_mask = padding_mask + [True] * pad_length
+
+        return tokenized_seq, padding_mask
+
+    def tokenize(self, pitch_sequence: str, count_sequence: str) -> typing.Tuple[typing.List[int], typing.List[int], typing.List[bool]]:
+        if len(pitch_sequence) == 0 or len(count_sequence) == 0:
+            raise ValueError("Given input sequence is empty")
+        
+        split_pitches = pitch_sequence.split(',')
+        split_counts = count_sequence.split(',')
+        if len(split_pitches) != len(split_counts) - 1:
+            raise ValueError(f"Sequence lengths don't match len({split_pitches}) {len(split_pitches)} != len({split_counts}) - 1{len(split_counts) - 1}")
+        
+        tokenized_pitches, pitches_padding_mask = self._tokenize_and_pad_sequence(split_pitches)
+        tokenized_counts, counts_padding_mask = self._tokenize_and_pad_sequence(split_counts)
+
+        return tokenized_pitches, tokenized_counts, counts_padding_mask
+    
+    def get_id_for_pitch(self, pitch: str) -> int:
+        if pitch not in self._pitch_to_id:
+            raise KeyError(f"Pitch {pitch} not in known pitch mapping")
+        
+        return self._pitch_to_id[pitch]
+    
+    def get_pitch_for_id(self, id: int) -> str:
+        return self._id_to_pitch[id]
+    
+    def vocab_size(self) -> int:
+        return len(self._pitch_to_id)
+    

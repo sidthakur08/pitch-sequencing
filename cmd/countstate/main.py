@@ -11,13 +11,13 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.ops import sigmoid_focal_loss
 
 
-from pitch_sequencing.ml.data.count_state import LastPitchSequenceWithCountDataset
-from pitch_sequencing.ml.tokenizers.pitch_sequence import PitchSequenceWithCountTokenizer
-from pitch_sequencing.ml.models.last_pitch import LastPitchTransformerModel
+from pitch_sequencing.ml.data.count_state import LastPitchSequenceWithCountDataset, SeparateSequencesWithCountDataset
+from pitch_sequencing.ml.tokenizers.pitch_sequence import PitchSequenceWithCountTokenizer, SeparateSequenceTokenizer
+from pitch_sequencing.ml.models.last_pitch import LastPitchTransformerModel, SeparateEmbeddingLayersLastPitchTransformerModel
 from pitch_sequencing.io.join import join_paths
 from pitch_sequencing.io.gcs import save_model_to_gcs
 
-USE_FOCAL_LOSS = True
+USE_FOCAL_LOSS = False
 
 
 def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, num_epochs: int, lr: float, device: torch.device, output_directory: str, logging_directory: str, output_len: int) -> nn.Module:
@@ -36,10 +36,12 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
         train_loss = 0
         epoch_start = time.time()
         for batch in train_loader:
+            optimizer.zero_grad()
             # Don't use arsenal mask for now.
             input_seq, padding_mask, target = [b.to(device) for b in batch]
-            optimizer.zero_grad()
             output = model(input_seq, padding_mask)
+            #input_seq, count_seq, padding_mask, target = [b.to(device) for b in batch]
+            #output = model(input_seq, count_seq, padding_mask)
             if USE_FOCAL_LOSS:
                 expanded_target = torch.zeros(len(target), output_len, device=device)
                 for i, t in enumerate(target):
@@ -59,6 +61,8 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
                 # Don't use arsenal mask for now.
                 input_seq, padding_mask, target = [b.to(device) for b in batch]
                 output = model(input_seq, src_mask=padding_mask)
+                #input_seq, count_seq, padding_mask, target = [b.to(device) for b in batch]
+                #output = model(input_seq, count_seq, src_mask=padding_mask)
                 if USE_FOCAL_LOSS:
                     expanded_target = torch.zeros(len(target), output_len, device=device)
                     for i, t in enumerate(target):
@@ -109,14 +113,19 @@ if __name__ == "__main__":
     print(validation_df.shape)
 
     tokenizer = PitchSequenceWithCountTokenizer()
+    #tokenizer = SeparateSequenceTokenizer()
 
     # Create datasets and dataloaders
     train_dataset = LastPitchSequenceWithCountDataset(train_df, tokenizer, seq_df_key="pitch_sequence")
     validation_dataset = LastPitchSequenceWithCountDataset(validation_df, tokenizer, seq_df_key="pitch_sequence")
+    #train_dataset = SeparateSequencesWithCountDataset(train_df, tokenizer, seq_df_key="pitch_sequence")
+    #validation_dataset = SeparateSequencesWithCountDataset(validation_df, tokenizer, seq_df_key="pitch_sequence")
+
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     validation_loader = DataLoader(validation_dataset, batch_size=args.batch_size)
 
     model = LastPitchTransformerModel(tokenizer.vocab_size(), d_model=64, nhead=4, num_layers=2)
+    #model = SeparateEmbeddingLayersLastPitchTransformerModel(tokenizer.vocab_size(), d_model=64, nhead=4, num_layers=2)
 
     # Train model
     print("Starting Training")
