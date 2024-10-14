@@ -26,7 +26,9 @@ class LastPitchSequenceWithCountDataset(Dataset):
         missing_last_pitch_raw_seq, last_pitch = extract_last_element_from_csv_seq(raw_pitch_seq)
         #missing_last_count_raw_seq, _ = extract_last_element_from_csv_seq(raw_count_seq)
 
-        input_seq = torch.tensor(self.seq_tokenizer.tokenize(missing_last_pitch_raw_seq, raw_count_seq), dtype=torch.long)
+        input_seq, padding_mask = self.seq_tokenizer.tokenize(missing_last_pitch_raw_seq, raw_count_seq)
+        input_seq = torch.tensor(input_seq, dtype=torch.long)
+        padding_mask = torch.tensor(padding_mask, dtype=torch.bool)
         target = torch.tensor(self.seq_tokenizer.get_id_for_pitch(last_pitch), dtype=torch.long)
 
-        return input_seq, target
+        return input_seq, padding_mask, target

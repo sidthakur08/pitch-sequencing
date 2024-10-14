@@ -1,5 +1,7 @@
 import typing
 
+from itertools import zip_longest
+
 # Generated using
 # gs://pitch-sequencing/sequence_data/large_sequence_data_cur_opt.csv
 ORDERED_PITCHES=['CB', 'KN', 'FC', 'FS', 'CH', 'FF', 'SL', 'PO', 'SI', 'ST']
@@ -83,14 +85,15 @@ class PitchSequenceWithCountTokenizer:
         self._pad_id = 0
         self._start_id = 1
         
-        # Hardcoded to 64 for nice base 2 ness and larger than max sequence len found in above.
         self.max_sequence_len = 64
         
         # Reverse the mapping of above.
         self._id_to_pitch: typing.Dict[int, str] = {id: pitch for pitch, id in self._pitch_to_id.items()} 
-        
+    
+    def padding_token_id(self) -> int:
+        return self._pad_id
 
-    def tokenize(self, pitch_sequence: str, count_sequence: str) -> typing.List[int]:
+    def tokenize(self, pitch_sequence: str, count_sequence: str) -> typing.Tuple[typing.List[int], typing.List[bool]]:
         """
         sequence is a CSV string of pitch strings seen in mapping table.
 
@@ -99,6 +102,8 @@ class PitchSequenceWithCountTokenizer:
         returns a list of ids with a fixed start token at the beginning, followed by
              the id of each pitch found in the input sequence in the given order.
              Padded with 0s to the max_sequence_len.
+
+             and a sequence .
         """
         if len(pitch_sequence) == 0 or len(count_sequence) == 0:
             raise ValueError("Given input sequence is empty")
@@ -109,16 +114,23 @@ class PitchSequenceWithCountTokenizer:
             raise ValueError(f"Sequence lengths don't match len({split_pitches}) {len(split_pitches)} != len({split_counts}) - 1{len(split_counts) - 1}")
         
         tokenized_seq = [self._start_id]
-        for i, pitch in enumerate(split_pitches):
-            tokenized_seq.extend([self._pitch_to_id[split_counts[i]], self._pitch_to_id[pitch]])
+        zipped_pairs = zip_longest(split_counts, split_pitches, fillvalue=None)
+        interleaved_counts_and_pitches = [item for pair in zipped_pairs for item in pair if item is not None]
+        tokenized_seq.extend([self.get_id_for_pitch(item) for item in interleaved_counts_and_pitches])
+
 
         if len(tokenized_seq) > self.max_sequence_len:
             raise ValueError(f"Input sequence length {len(tokenized_seq)} > {self.max_sequence_len}")
         
+        padding_mask = [False] * len(tokenized_seq)
         if len(tokenized_seq) < self.max_sequence_len:
-            tokenized_seq = tokenized_seq + [self._pad_id] * (self.max_sequence_len - len(tokenized_seq))
+            pad_length = (self.max_sequence_len - len(tokenized_seq))
+            tokenized_seq = tokenized_seq + [self._pad_id] * pad_length
+            padding_mask = padding_mask + [True] * pad_length
 
-        return tokenized_seq
+        #padding_mask = (tokenized_seq == self._pad_id)
+
+        return tokenized_seq, padding_mask
     
     def get_id_for_pitch(self, pitch: str) -> int:
         if pitch not in self._pitch_to_id:

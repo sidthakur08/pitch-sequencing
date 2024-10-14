@@ -17,7 +17,7 @@ from pitch_sequencing.ml.models.last_pitch import LastPitchTransformerModel
 from pitch_sequencing.io.join import join_paths
 from pitch_sequencing.io.gcs import save_model_to_gcs
 
-USE_FOCAL_LOSS = False
+USE_FOCAL_LOSS = True
 
 
 def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, num_epochs: int, lr: float, device: torch.device, output_directory: str, logging_directory: str, output_len: int) -> nn.Module:
@@ -37,9 +37,9 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
         epoch_start = time.time()
         for batch in train_loader:
             # Don't use arsenal mask for now.
-            input_seq, target = [b.to(device) for b in batch]
+            input_seq, padding_mask, target = [b.to(device) for b in batch]
             optimizer.zero_grad()
-            output = model(input_seq)
+            output = model(input_seq, padding_mask)
             if USE_FOCAL_LOSS:
                 expanded_target = torch.zeros(len(target), output_len, device=device)
                 for i, t in enumerate(target):
@@ -57,8 +57,8 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
         with torch.no_grad():
             for batch in val_loader:
                 # Don't use arsenal mask for now.
-                input_seq, target = [b.to(device) for b in batch]
-                output = model(input_seq)
+                input_seq, padding_mask, target = [b.to(device) for b in batch]
+                output = model(input_seq, src_mask=padding_mask)
                 if USE_FOCAL_LOSS:
                     expanded_target = torch.zeros(len(target), output_len, device=device)
                     for i, t in enumerate(target):

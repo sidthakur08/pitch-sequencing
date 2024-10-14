@@ -8,7 +8,7 @@
         },
         "args": [
             "--num_epochs=25",
-            "--learning_rate=0.01",
+            "--learning_rate=0.001",
             "--batch_size=32",
             "--input_train_path=gs://pitch-sequencing/sequence_data/full_sequence_data/exploded/large_cur_train.csv",
             "--input_validation_path=gs://pitch-sequencing/sequence_data/full_sequence_data/exploded/large_cur_validation.csv"
