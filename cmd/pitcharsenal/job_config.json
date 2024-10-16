@@ -1,0 +1,19 @@
+{
+    "vertex_training_config": {
+        "instance_type": "n1-standard-4",
+        "replica_count": "1",
+        "gpu_config": {
+            "accelerator_type": "NVIDIA_TESLA_T4",
+            "accelerator_count": "1"
+        },
+        "args": [
+            "--num_epochs=20",
+            "--learning_rate=0.001",
+            "--batch_size=32",
+            "--input_train_path=gs://pitch-sequencing/sequence_data/full_sequence_data/exploded/large_cur_train.csv",
+            "--input_validation_path=gs://pitch-sequencing/sequence_data/full_sequence_data/exploded/large_cur_validation.csv",
+
+            "--arsenal_lookup_table_path=gs://pitch-sequencing/arsenal_data/pitch_arsenal_data.csv"
+        ]
+    }
+}
