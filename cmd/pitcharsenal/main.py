@@ -11,12 +11,13 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 
-from pitch_sequencing.ml.data.pitch_arsenal import PitchArsenalSequenceDataset, collate_interleaved_and_target
+from pitch_sequencing.ml.data.pitch_arsenal import PitchArsenalSequenceDataset
+from pitch_sequencing.ml.data.sequences import collate_interleaved_and_target
 from pitch_sequencing.ml.tokenizers.pitch_arsenal import ArsenalSequenceTokenizer, PitchArsenalLookupTable
 from pitch_sequencing.ml.models.last_pitch import LastPitchTransformerModel
 from pitch_sequencing.io.join import join_paths
 from pitch_sequencing.io.gcs import save_model_to_gcs
-from pitch_sequencing.ml.loss.focal import FocalLoss
+
 
 
 def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, loss_criterion: nn.Module, num_epochs: int, lr: float, device: torch.device, output_directory: str, logging_directory: str, output_len: int) -> nn.Module:

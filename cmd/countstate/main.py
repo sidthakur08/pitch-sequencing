@@ -13,6 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 import pitch_sequencing.ml.data.count_state as cs
 
 from pitch_sequencing.ml.data.count_state import LastPitchSequenceWithCountDataset, SeparateSequencesWithCountDataset
+from pitch_sequencing.ml.data.sequences import collate_interleaved_and_target
 from pitch_sequencing.ml.tokenizers.pitch_sequence import PitchSequenceWithCountTokenizer, SeparateSequenceTokenizer
 from pitch_sequencing.ml.models.last_pitch import LastPitchTransformerModel, SeparateEmbeddingLayersLastPitchTransformerModel
 from pitch_sequencing.io.join import join_paths
@@ -125,7 +126,7 @@ if __name__ == "__main__":
             train_dataset = LastPitchSequenceWithCountDataset(train_df, tokenizer, expand_target=expand_target, seq_df_key="pitch_sequence")
             validation_dataset = LastPitchSequenceWithCountDataset(validation_df, tokenizer, expand_target=expand_target, seq_df_key="pitch_sequence")
             model = LastPitchTransformerModel(tokenizer.vocab_size(), d_model=64, nhead=4, num_layers=2)
-            collate_fn = cs.collate_interleaved_and_target
+            collate_fn = collate_interleaved_and_target
         case ModelTypes.SEPERATE_MODEL:
             tokenizer = SeparateSequenceTokenizer()
             train_dataset = SeparateSequencesWithCountDataset(train_df, tokenizer, expand_target=expand_target, seq_df_key="pitch_sequence")
