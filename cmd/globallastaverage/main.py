@@ -93,8 +93,8 @@ if __name__ == "__main__":
     tokenizer = HardCodedPitchSequenceTokenizer()
 
     # Create datasets and dataloaders
-    train_dataset = LastPitchSequenceDataset(train_df, tokenizer)
-    validation_dataset = LastPitchSequenceDataset(validation_df, tokenizer)
+    train_dataset = LastPitchSequenceDataset(train_df, tokenizer, seq_df_key="pitch_sequence")
+    validation_dataset = LastPitchSequenceDataset(validation_df, tokenizer, seq_df_key="pitch_sequence")
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     validation_loader = DataLoader(validation_dataset, batch_size=args.batch_size)
 

@@ -7,11 +7,14 @@
             "accelerator_count": "1"
         },
         "args": [
-            "--num_epochs=25",
+            "--num_epochs=20",
             "--learning_rate=0.001",
-            "--batch_size=64",
+            "--batch_size=32",
             "--input_train_path=gs://pitch-sequencing/sequence_data/full_sequence_data/exploded/large_cur_train.csv",
-            "--input_validation_path=gs://pitch-sequencing/sequence_data/full_sequence_data/exploded/large_cur_validation.csv"
+            "--input_validation_path=gs://pitch-sequencing/sequence_data/full_sequence_data/exploded/large_cur_validation.csv",
+
+            "--loss=cross_entropy",
+            "--model_type=interleaved"
         ]
     }
 }
