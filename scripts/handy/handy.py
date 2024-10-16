@@ -13,7 +13,7 @@ from pitch_sequencing.constants.gcloud import get_gcloud_account_username
 from pitch_sequencing.constants.project import get_project_base_dir
 
 # Docker constants
-DEFAULT_BASE_DOCKER_IMAGE="us-docker.pkg.dev/vertex-ai/training/pytorch-xla.2-3.py310:latest"
+DEFAULT_BASE_DOCKER_IMAGE="us-central1-docker.pkg.dev/pitch-sequencing/pitch-sequencing-training/base-training-image:latest"
 REGION_REPO="us-central1-docker.pkg.dev"
 PROJECT_ID="pitch-sequencing"
 REPO="pitch-sequencing-training"
