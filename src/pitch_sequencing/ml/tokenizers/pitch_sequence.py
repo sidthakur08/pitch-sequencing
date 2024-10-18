@@ -280,6 +280,8 @@ class CSVSequenceInput:
 ON_BASE_SEQ_INFO = SequenceInfo(SequenceID.ON_BASE, 3, [vocab.VocabID.BOOLEAN])
 
 
+#TODO(kaelen): maybe have a schema report function that returns the expected ordering of all of the sequences so that the data set can
+# build properly.
 class PitchSequenceTokenizer:
     def __init__(
             self, 
