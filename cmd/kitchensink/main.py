@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 import pitch_sequencing.ml.tokenizers.vocab as vocab
 import pitch_sequencing.ml.data.generators as gen
 
-from pitch_sequencing.ml.data.sequences import PitchSequenceDataset, CSVSequenceDataGenPlan, collate_interleaved_and_target, 
+from pitch_sequencing.ml.data.sequences import PitchSequenceDataset, CSVSequenceDataGenPlan, collate_interleaved_and_target
 from pitch_sequencing.ml.tokenizers.pitch_arsenal import PitchArsenalLookupTable
 from pitch_sequencing.ml.tokenizers.pitch_sequence import PitchSequenceTokenizer, SequenceInfo, SequenceID
 from pitch_sequencing.ml.models.last_pitch import LastPitchTransformerModel

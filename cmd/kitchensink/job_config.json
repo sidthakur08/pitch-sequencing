@@ -11,9 +11,9 @@
             "--learning_rate=0.001",
             "--batch_size=32",
             "--input_train_path=gs://pitch-sequencing/sequence_data/full_sequence_data/v2/kitchensink/exploded/large_cur_train.csv",
-            "--input_validation_path=gs://pitch-sequencing/sequence_data/full_sequence_data/v2/kitchensink/exploded/large_cur_validation.csv"
+            "--input_validation_path=gs://pitch-sequencing/sequence_data/full_sequence_data/v2/kitchensink/exploded/large_cur_validation.csv",
 
-            
+            "--arsenal_lookup_table_path=gs://pitch-sequencing/arsenal_data/pitch_arsenal_data.csv"
         ]
     }
 }
