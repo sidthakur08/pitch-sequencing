@@ -10,25 +10,14 @@ from dataclasses import asdict
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-import pitch_sequencing.ml.data.count_state as cs
 
-from pitch_sequencing.ml.data.count_state import LastPitchSequenceWithCountDataset, SeparateSequencesWithCountDataset
+from pitch_sequencing.ml.data.pitch_arsenal import PitchArsenalSequenceDataset
 from pitch_sequencing.ml.data.sequences import collate_interleaved_and_target
-from pitch_sequencing.ml.tokenizers.pitch_sequence import PitchSequenceWithCountTokenizer, SeparateSequenceTokenizer
-from pitch_sequencing.ml.models.last_pitch import LastPitchTransformerModel, SeparateEmbeddingLayersLastPitchTransformerModel
+from pitch_sequencing.ml.tokenizers.pitch_arsenal import ArsenalSequenceTokenizer, PitchArsenalLookupTable
+from pitch_sequencing.ml.models.last_pitch import LastPitchTransformerModel
 from pitch_sequencing.io.join import join_paths
 from pitch_sequencing.io.gcs import save_model_to_gcs
-from pitch_sequencing.ml.loss.focal import FocalLoss
 
-
-# Model Type Choices
-class ModelTypes:
-    INTERLEAVED_MODEL = 'interleaved'
-    SEPERATE_MODEL = 'seperate'
-# Loss choices
-class Losses:
-    FOCAL_LOSS = 'focal'
-    CROSS_ENTROPY_LOSS = 'cross_entropy'
 
 
 def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, loss_criterion: nn.Module, num_epochs: int, lr: float, device: torch.device, output_directory: str, logging_directory: str, output_len: int) -> nn.Module:
@@ -89,8 +78,7 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=32, help="Mini batch size for training")
     parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate for optimizer")
 
-    parser.add_argument("--loss", choices=[Losses.FOCAL_LOSS, Losses.CROSS_ENTROPY_LOSS], required=True, help="which loss calculation to use")
-    parser.add_argument("--model_type", choices=[ModelTypes.INTERLEAVED_MODEL, ModelTypes.SEPERATE_MODEL], required=True, help='which model type to train')
+    parser.add_argument("--arsenal_lookup_table_path", type=str, required=True, help="Path to a csv file that contains the pitcher aresnal information")
 
     return parser.parse_args()
 
@@ -99,42 +87,23 @@ if __name__ == "__main__":
 
     print(f"Reading data from {args.input_train_path}")
     train_df = pd.read_csv(args.input_train_path)
-
     print(f"Reading data from {args.input_validation_path}")
     validation_df = pd.read_csv(args.input_validation_path)
-    
     print(train_df.shape)
     print(validation_df.shape)
-    
-    print(f"{args.loss}")
 
-    expand_target = False
-    match args.loss:
-        case Losses.CROSS_ENTROPY_LOSS:
-            loss = nn.CrossEntropyLoss()
-        case Losses.FOCAL_LOSS:
-            # TODO(kaelen): Figure out a weights to give this.
-            loss = FocalLoss()
-            expand_target = True
-        case _:
-            raise ValueError("Unsupported loss choice given")
-        
-    print(f"{args.model_type}")
-    match args.model_type:
-        case ModelTypes.INTERLEAVED_MODEL:
-            tokenizer = PitchSequenceWithCountTokenizer()
-            train_dataset = LastPitchSequenceWithCountDataset(train_df, tokenizer, expand_target=expand_target, seq_df_key="pitch_sequence")
-            validation_dataset = LastPitchSequenceWithCountDataset(validation_df, tokenizer, expand_target=expand_target, seq_df_key="pitch_sequence")
-            model = LastPitchTransformerModel(tokenizer.vocab_size(), d_model=64, nhead=4, num_layers=2)
-            collate_fn = collate_interleaved_and_target
-        case ModelTypes.SEPERATE_MODEL:
-            tokenizer = SeparateSequenceTokenizer()
-            train_dataset = SeparateSequencesWithCountDataset(train_df, tokenizer, expand_target=expand_target, seq_df_key="pitch_sequence")
-            validation_dataset = SeparateSequencesWithCountDataset(validation_df, tokenizer, expand_target=expand_target, seq_df_key="pitch_sequence")
-            model = SeparateEmbeddingLayersLastPitchTransformerModel(tokenizer.vocab_size(), d_model=64, nhead=4, num_layers=2)
-            collate_fn = cs.collate_pitch_count_seqs_and_target
-        case _:
-            raise ValueError("Unsupported model type given")
+    print(f"Reading Pitcher arsenal data from {args.arsenal_lookup_table_path}")
+    arsenal_df = pd.read_csv(args.arsenal_lookup_table_path)
+    arsenal_lookup_table = PitchArsenalLookupTable(arsenal_df)
+    print(f"Successfully loaded PItcher arsenal data")
+
+    # Hardcode 63 for now.
+    tokenizer = ArsenalSequenceTokenizer(arsenal_lookup_table.max_arsenal_size, max_pitch_count_seq_len=63)
+    train_dataset = PitchArsenalSequenceDataset(train_df, tokenizer, arsenal_lookup_table)
+    validation_dataset = PitchArsenalSequenceDataset(validation_df, tokenizer, arsenal_lookup_table)
+    model = LastPitchTransformerModel(tokenizer.vocab_size(), d_model=64, nhead=4, num_layers=2)
+    collate_fn = collate_interleaved_and_target
+    loss = nn.CrossEntropyLoss()
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
     validation_loader = DataLoader(validation_dataset, batch_size=args.batch_size, collate_fn=collate_fn)
