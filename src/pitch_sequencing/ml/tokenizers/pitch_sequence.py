@@ -207,21 +207,21 @@ class SeparateSequenceTokenizer():
 
 def encode_sequence(sequence: typing.List[str], id_mapping_table: typing.Dict[str, int], max_encoded_seq_len: int, start_id: int, padding_id: int = 0) -> typing.List[int]:
     encoded_sequence = [start_id]
-    encoded_sequence = encode_sequence + [id_mapping_table[item] for item in sequence]
+    encoded_sequence = encoded_sequence + [id_mapping_table[item] for item in sequence]
 
     if len(encoded_sequence) > max_encoded_seq_len:
         raise ValueError(f"Encoded Sequence len {len(encoded_sequence)} > {max_encoded_seq_len} for f{sequence} + start token")
     
     if len(encoded_sequence) < max_encoded_seq_len:
-        pad_length = (max_encoded_seq_len - len(encoded_seq))
-        encoded_seq = encoded_seq + [padding_id] * pad_length
+        pad_length = (max_encoded_seq_len - len(encoded_sequence))
+        encoded_sequence = encoded_sequence + [padding_id] * pad_length
 
     return encoded_sequence
 
 def validate_seq_lens_within_margin(sequences: typing.List, max_len_diff: int) -> None:
     max_len = 0
     max_len_idx = -1
-    min_len = 0
+    min_len = 10000000
     min_len_idx = -1
 
     for i, seq in enumerate(sequences):
@@ -248,11 +248,11 @@ def interleave_csv_sequences(csv_sequences: typing.List[str]) -> typing.List[str
 
     return interleaved_sequence
  
-def interleave_and_encode_csv_sequences(csv_sequences: typing.List[str], max_encoded_seq_len: int, id_mapping_table: typing.Dict[str, int], start_id: int, padding_id: int = 0) -> typing.List[int]:
+def interleave_and_encode_csv_sequences(csv_sequences: typing.List[str], id_mapping_table: typing.Dict[str, int], max_encoded_seq_len: int, start_id: int, padding_id: int = 0) -> typing.List[int]:
     interleaved_sequence = interleave_csv_sequences(csv_sequences)
     
     try:
-        encoded_sequence = encode_sequence(interleaved_sequence, max_encoded_seq_len, id_mapping_table, start_id, padding_id=padding_id)
+        encoded_sequence = encode_sequence(interleaved_sequence, id_mapping_table, max_encoded_seq_len, start_id, padding_id=padding_id)
     except Exception as e:
         raise ValueError(f"Failed to encode interleaved sequence {interleaved_sequence}: {e}")
     
@@ -287,7 +287,7 @@ class PitchSequenceTokenizer:
             self, 
             sequential_sequences: typing.List[SequenceInfo], 
             interleaved_sequence: SequenceInfo, 
-            vocab_data: typing.List[vocab.VocabInfo] =[vocab.PITCH_VOCAB, vocab.COUNT_VOCAB, vocab.HANDEDNESS_VOCAB, vocab.BOOLEAN_VOCAB],
+            vocab_data: typing.List[vocab.VocabInfo] = [vocab.PITCH_VOCAB, vocab.COUNT_VOCAB, vocab.HANDEDNESS_VOCAB, vocab.BOOLEAN_VOCAB],
     ):
         self._padding_id = 0
         self._global_start_id = 1
@@ -326,7 +326,7 @@ class PitchSequenceTokenizer:
         self.global_vocab.append("<interleaved_start>")
         self.seq_start_token_ids["interleaved"] = current_free_idx
         # Add one for start token that will be added for each sequence.
-        self.max_sequence_lengths["interleaved"] = seq.max_sequence_len + 1
+        self.max_sequence_lengths["interleaved"] = interleaved_sequence.max_sequence_len + 1
         current_free_idx += 1
 
         self.token_to_id = {}
@@ -338,8 +338,8 @@ class PitchSequenceTokenizer:
         return self.token_to_id[token]
     
     def get_token_for_id(self, id: int) -> str:
-        if id >= len(self.vocab_size()):
-            raise ValueError(f"ID {id} not in vocab range < {len(self.self.vocab_size())}")
+        if id >= self.vocab_size():
+            raise ValueError(f"ID {id} not in vocab range < {self.self.vocab_size()}")
         
         return self.global_vocab[id]
     
@@ -365,7 +365,7 @@ class PitchSequenceTokenizer:
         interleaved_start_token_id = self.seq_start_token_ids['interleaved']
         max_len_for_interleaved_seq = self.max_sequence_lengths['interleaved']
         try:
-            encoded_interleaved_sequence = interleave_and_encode_csv_sequences(csv_sequences_to_interleave, max_len_for_interleaved_seq, self.token_to_id, interleaved_start_token_id, self._padding_id)
+            encoded_interleaved_sequence = interleave_and_encode_csv_sequences(csv_sequences_to_interleave, self.token_to_id, max_len_for_interleaved_seq, interleaved_start_token_id, self._padding_id)
         except Exception as e:
             raise ValueError(f"Failed to interleave and encode sequences {e}")
 

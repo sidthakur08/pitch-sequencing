@@ -68,17 +68,23 @@ class PitchSequenceDataset(Dataset):
     def __len__(self):
         return len(self.df)
     
-    def __get__(self, idx) -> typing.Tuple[SingularSequence, typing.List[bool]]:
-        row = self.iloc(idx)
+    def __getitem__(self, idx) -> typing.Tuple[SingularSequence, typing.List[bool]]:
+        row = self.df.iloc[idx]
 
         sequential_inputs = []
         for plan in self.sequential_input_generation_plan:
-            generated_csv_input = plan.generator.generate_csv_sequence_from_df_row(row)
+            try:
+                generated_csv_input = plan.generator.generate_csv_sequence_from_df_row(row)
+            except Exception as e:
+                raise ValueError(f"Failed to generate sequence for {plan.seq_id} at {idx}: {e}")
             sequential_inputs.append(CSVSequenceInput(plan.seq_id, generated_csv_input))
         
         inputs_to_interleave = []
-        for plan in self.sequential_input_generation_plan:
-            generated_csv_input = plan.generator.generate_csv_sequence_from_df_row(row)
+        for plan in self.interleave_input_generation_plan:
+            try:
+                generated_csv_input = plan.generator.generate_csv_sequence_from_df_row(row)
+            except Exception as e:
+                raise ValueError(f"Failed to generate sequence interleaving for {plan.seq_id} at {idx}: {e}")
             inputs_to_interleave.append(generated_csv_input)
 
         try:
@@ -86,7 +92,7 @@ class PitchSequenceDataset(Dataset):
         except Exception as e:
             raise ValueError(f"Failed to tokenize sequence for {idx} {e}")
         
-        target_pitch = self.df[self.target_df_key]
+        target_pitch = row[self.target_df_key]
         target_id = self.tokenizer.get_id_for_token(target_pitch)
 
         input_seq = torch.tensor(encoded_sequence, dtype=torch.long)
