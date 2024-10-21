@@ -2,6 +2,8 @@ import abc
 import math
 import pandas as pd
 
+from typing import Optional, Type, Any
+
 from pitch_sequencing.ml.tokenizers.pitch_arsenal import PitchArsenalLookupTable
 
 # TODO(kaelen): probably consider a different name besides Generator since it's used in python
@@ -11,11 +13,15 @@ class CSVSequenceGenerator(abc.ABC):
         pass
 
 class DirectCSVLookupGenerator(CSVSequenceGenerator):
-    def __init__(self, df_key: str):
+    def __init__(self, df_key: str, type_conversion: Optional[Type[Any]] = None):
         self.df_key = df_key
+        self.type_conversion = type_conversion
 
     def generate_csv_sequence_from_df_row(self, row: pd.Series) -> str:
-        return row[self.df_key]
+        value = row[self.df_key]
+        if self.type_conversion is not None:
+            value = value.astype(self.type_conversion)
+        return str(value)
     
 class OnBaseCSVGenerator(CSVSequenceGenerator):
     def __init__(self, first_base_df_key: str = 'on_1b', second_base_df_key: str = 'on_2b', third_base_df_key: str = 'on_3b'):
