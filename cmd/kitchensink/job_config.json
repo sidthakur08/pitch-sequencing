@@ -7,7 +7,7 @@
             "accelerator_count": "1"
         },
         "args": [
-            "--num_epochs=20",
+            "--num_epochs=10",
             "--learning_rate=0.001",
             "--batch_size=32",
             "--input_train_path=gs://pitch-sequencing/sequence_data/full_sequence_data/v2/kitchensink/exploded/large_cur_train.csv",
