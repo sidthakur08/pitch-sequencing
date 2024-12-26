@@ -11,14 +11,11 @@ ORDERED_COUNT=['0-0', '0-1', '0-2', '1-0', '1-1', '1-2', '2-0', '2-1', '2-2', '3
 
 class PitchArsenalLookupTable:
     def __init__(self, arsenal_mapping_df: pd.DataFrame):
-        self.pitcher_arsenal_table = arsenal_mapping_df.set_index('pitcher')['pitch_arsenal_csv'].to_dict()
         self.max_arsenal_size = arsenal_mapping_df['arsenal_size'].max()
+        self.pitcher_arsenal_table = arsenal_mapping_df.set_index('pitcher')['pitch_arsenal_csv'].to_dict()
 
     def arsenal_for_pitcher_id(self, pitcher_id: int) -> typing.List[str]:
         return self.pitcher_arsenal_table[pitcher_id]
-    
-    def max_arsenal_size(self) -> int:
-        return self.max_arsenal_size
 
 class ArsenalSequenceTokenizer:
     def __init__(self, max_arsenal_size: int = 10, max_pitch_count_seq_len: int = 63):

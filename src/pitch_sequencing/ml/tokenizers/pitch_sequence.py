@@ -1,6 +1,9 @@
 import typing
 
+from dataclasses import dataclass
 from itertools import zip_longest
+
+import pitch_sequencing.ml.tokenizers.vocab as vocab
 
 # Generated using
 # gs://pitch-sequencing/sequence_data/large_sequence_data_cur_opt.csv
@@ -201,4 +204,175 @@ class SeparateSequenceTokenizer():
     
     def vocab_size(self) -> int:
         return len(self._pitch_to_id)
+
+def encode_sequence(sequence: typing.List[str], id_mapping_table: typing.Dict[str, int], max_encoded_seq_len: int, start_id: int, padding_id: int = 0) -> typing.List[int]:
+    encoded_sequence = [start_id]
+    encoded_sequence = encoded_sequence + [id_mapping_table[item] for item in sequence]
+
+    if len(encoded_sequence) > max_encoded_seq_len:
+        raise ValueError(f"Encoded Sequence len {len(encoded_sequence)} > {max_encoded_seq_len} for f{sequence} + start token")
     
+    if len(encoded_sequence) < max_encoded_seq_len:
+        pad_length = (max_encoded_seq_len - len(encoded_sequence))
+        encoded_sequence = encoded_sequence + [padding_id] * pad_length
+
+    return encoded_sequence
+
+def validate_seq_lens_within_margin(sequences: typing.List, max_len_diff: int) -> None:
+    max_len = 0
+    max_len_idx = -1
+    min_len = 10000000
+    min_len_idx = -1
+
+    for i, seq in enumerate(sequences):
+        if len(seq) > max_len:
+            max_len = len(seq)
+            max_len_idx = i
+        if len(seq) < min_len:
+            min_len = len(seq)
+            min_len_idx = i
+
+    if max_len - min_len > max_len_diff:
+        raise ValueError(f"Sequence length difference for {sequences[max_len_idx]} and {sequences[min_len_idx]} ({max_len - min_len}) > {max_len_diff}")
+    
+    return
+
+def interleave_csv_sequences(csv_sequences: typing.List[str]) -> typing.List[str]:
+    split_sequences = [seq.split(',') for seq in csv_sequences]
+    
+    # Validate all lens are within one
+    validate_seq_lens_within_margin(split_sequences, 1)
+
+    zipped_tuples = zip_longest(*split_sequences, fillvalue=None)
+    interleaved_sequence = [item for t in zipped_tuples for item in t if item is not None]
+
+    return interleaved_sequence
+ 
+def interleave_and_encode_csv_sequences(csv_sequences: typing.List[str], id_mapping_table: typing.Dict[str, int], max_encoded_seq_len: int, start_id: int, padding_id: int = 0) -> typing.List[int]:
+    interleaved_sequence = interleave_csv_sequences(csv_sequences)
+    
+    try:
+        encoded_sequence = encode_sequence(interleaved_sequence, id_mapping_table, max_encoded_seq_len, start_id, padding_id=padding_id)
+    except Exception as e:
+        raise ValueError(f"Failed to encode interleaved sequence {interleaved_sequence}: {e}")
+    
+    return encoded_sequence
+
+class SequenceID:
+    PITCHES = 'pitches'
+    ARSENAL = 'arsenal'
+    HANDEDNESS = 'handedness'
+    ON_BASE = 'on_base'
+    INTERLEAVED = 'interleaved'
+
+
+@dataclass
+class SequenceInfo:
+    seq_id: SequenceID
+    max_sequence_len: int
+    vocab_ids: typing.List[vocab.VocabID]
+
+@dataclass
+class CSVSequenceInput:
+    seq_id: SequenceID
+    csv_sequence: str
+
+ON_BASE_SEQ_INFO = SequenceInfo(SequenceID.ON_BASE, 3, [vocab.VocabID.BOOLEAN])
+
+
+#TODO(kaelen): maybe have a schema report function that returns the expected ordering of all of the sequences so that the data set can
+# build properly.
+class PitchSequenceTokenizer:
+    def __init__(
+            self, 
+            sequential_sequences: typing.List[SequenceInfo], 
+            interleaved_sequence: SequenceInfo, 
+            vocab_data: typing.List[vocab.VocabInfo] = [vocab.PITCH_VOCAB, vocab.COUNT_VOCAB, vocab.HANDEDNESS_VOCAB, vocab.BOOLEAN_VOCAB],
+    ):
+        self._padding_id = 0
+        self._global_start_id = 1
+        self.global_vocab = ['<pad>', '<start>']
+        self.seq_start_token_ids = {}
+        self.added_vocabs = set()
+        self.max_sequence_lengths = {}
+
+        # Add all of our core vocabs
+        for v_data in vocab_data:
+            if v_data.vocab_id in self.added_vocabs:
+                raise ValueError(f"Duplicate vocab ids seen {v_data.vocab_id}")
+            self.added_vocabs.add(v_data.vocab_id)
+            self.global_vocab.extend(v_data.vocab)
+        
+        # Now add our sequence start tokens we might add.
+        # Also check if our sequence's associated vocab is in our known vocab id set.
+        current_free_idx = len(self.global_vocab)
+        for seq in sequential_sequences:
+            # Check if we know this vocab the sequence is trying to use.
+            for v_id in seq.vocab_ids:
+                if v_id not in self.added_vocabs:
+                    raise ValueError(f"Vocab {v_id} not known to tokenizer for seq {seq.seq_id}")
+                
+            start_token_for_seq = f"<{seq.seq_id}_start>"
+            self.global_vocab.append(start_token_for_seq)
+            self.seq_start_token_ids[seq.seq_id] = current_free_idx
+            # Add one for start token that will be added for each sequence.
+            self.max_sequence_lengths[seq.seq_id] = seq.max_sequence_len + 1
+            current_free_idx += 1
+        
+        # Check if we know this vocab the sequence is trying to use.
+        for v_id in interleaved_sequence.vocab_ids:
+            if v_id not in self.added_vocabs:
+                raise ValueError(f"Vocab {v_id} not known to tokenizer for seq {interleaved_sequence.seq_id}")
+        self.global_vocab.append("<interleaved_start>")
+        self.seq_start_token_ids["interleaved"] = current_free_idx
+        # Add one for start token that will be added for each sequence.
+        self.max_sequence_lengths["interleaved"] = interleaved_sequence.max_sequence_len + 1
+        current_free_idx += 1
+
+        self.token_to_id = {}
+        for i in range(0, len(self.global_vocab)):
+            self.token_to_id[self.global_vocab[i]] = i
+
+
+    def get_id_for_token(self, token: str) -> int:
+        return self.token_to_id[token]
+    
+    def get_token_for_id(self, id: int) -> str:
+        if id >= self.vocab_size():
+            raise ValueError(f"ID {id} not in vocab range < {self.self.vocab_size()}")
+        
+        return self.global_vocab[id]
+    
+    def vocab_size(self) -> int:
+        return len(self.global_vocab)
+    
+    def tokenize(self, sequential_inputs: typing.List[CSVSequenceInput], csv_sequences_to_interleave: typing.List[str]) -> typing.Tuple[typing.List[int], typing.List[bool]]:
+        final_encoded_sequence = [self._global_start_id]
+        for input in sequential_inputs:
+            if input.seq_id not in self.seq_start_token_ids:
+                raise ValueError(f"Unknown sequence provided {input.seq_id}")
+            
+            seq_start_token_id = self.seq_start_token_ids[input.seq_id]
+            max_len_for_seq = self.max_sequence_lengths[input.seq_id]
+            try:
+                encoded_sub_sequence = encode_sequence(input.csv_sequence.split(','), self.token_to_id, max_len_for_seq, seq_start_token_id, self._padding_id)
+            except Exception as E:
+                raise ValueError(f"Failed to encode sequential sequence input {input.seq_id}: {e}")
+            
+            final_encoded_sequence.extend(encoded_sub_sequence)
+        
+        # Now do interlaved sequences.
+        interleaved_start_token_id = self.seq_start_token_ids['interleaved']
+        max_len_for_interleaved_seq = self.max_sequence_lengths['interleaved']
+        try:
+            encoded_interleaved_sequence = interleave_and_encode_csv_sequences(csv_sequences_to_interleave, self.token_to_id, max_len_for_interleaved_seq, interleaved_start_token_id, self._padding_id)
+        except Exception as e:
+            raise ValueError(f"Failed to interleave and encode sequences {e}")
+
+        final_encoded_sequence.extend(encoded_interleaved_sequence)
+        # Don't need to check sizes as sizes are checks at component level.
+        # Generate the padding mask for what the model should care about.
+        padding_mask = [id == self._padding_id for id in final_encoded_sequence]
+
+        return final_encoded_sequence, padding_mask
+
